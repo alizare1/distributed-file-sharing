@@ -5,6 +5,23 @@ BLOCK_SIZE = 300
 class MessageType:
     FILE_TRANFER = 0
     JOIN = 1
+    FILE_SEARCH = 2
+    HAS_FILE = 3
+    TRANSFER_REQUEST = 4
+
+    _msg_str = {
+        FILE_TRANFER: 'File Transfer',
+        JOIN: 'Join',
+        FILE_SEARCH: 'File Search',
+        HAS_FILE: 'Has File',
+        TRANSFER_REQUEST: 'Transfer Request'
+    }
+
+    @staticmethod
+    def to_str(msg):
+        return MessageType._msg_str[msg]
+
+
 
 
 class Data:
@@ -29,16 +46,16 @@ def insert_padding(pickled_data):
     
     return pickled_data + b'0' * (BLOCK_SIZE - initial_size)
 
-def create_pickled_packet(packet, data):
-    packet.data = None
+def create_pickled_packet(packet, data) -> (int, bytes):
     initial_size = get_pickled_size(packet)
     if initial_size >= BLOCK_SIZE - 5:
         raise Exception('get_pickled_packet: Packet has no space for data')
     
     capacity = BLOCK_SIZE - initial_size - 5
-    packet.data = data[:capacity]
-    if (len(data) <= capacity):
-        packet.is_last = True
+    if data:
+        packet.data = data[:capacity]
+        if (len(data) <= capacity):
+            packet.is_last = True
     return capacity, insert_padding(pickle.dumps(packet))
 
 def create_data_packets(msg_type, sender, receiver, data, file_name=''):
