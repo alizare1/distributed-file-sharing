@@ -130,8 +130,7 @@ class Node:
                 else:
                     data = b''
                     try:
-                        for i in range(BLOCK_SIZE):
-                            print(i, end=" ")
+                        for _ in range(BLOCK_SIZE):
                             temp = sock.recv(1)
                             if not temp:
                                 data = b''
