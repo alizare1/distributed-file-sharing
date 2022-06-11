@@ -48,10 +48,10 @@ def insert_padding(pickled_data):
 
 def create_pickled_packet(packet, data) -> (int, bytes):
     initial_size = get_pickled_size(packet)
-    if initial_size >= BLOCK_SIZE - 5:
+    if initial_size >= BLOCK_SIZE - (BLOCK_SIZE // 10):
         raise Exception('get_pickled_packet: Packet has no space for data')
     
-    capacity = BLOCK_SIZE - initial_size - 5
+    capacity = BLOCK_SIZE - initial_size - (BLOCK_SIZE // 10)
     if data:
         packet.data = data[:capacity]
         if (len(data) <= capacity):

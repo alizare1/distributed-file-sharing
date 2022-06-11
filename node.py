@@ -128,9 +128,17 @@ class Node:
                     print(f"Connected by {addr}")
 
                 else:
-                    data = None
+                    data = b''
                     try:
-                        data = sock.recv(BLOCK_SIZE)
+                        for i in range(BLOCK_SIZE):
+                            print(i, end=" ")
+                            temp = sock.recv(1)
+                            if not temp:
+                                data = b''
+                                break
+
+                            data += temp
+
                     except ConnectionResetError: # Windows doesn't close socket (so no EOF) when program is closed
                         print('dumb windows')
                     if not data: # EOF
