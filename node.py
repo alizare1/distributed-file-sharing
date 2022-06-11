@@ -9,11 +9,13 @@ from packet import *
 from file import File
 from write_ahead import WriteAheadLog
 from datetime import datetime
+from difflib import SequenceMatcher
 
 HOST = "0.0.0.0"
 PORT = 8081
 
 ACK_LIMIT = 20 #seconds
+SIMILARITY_MIN_THRESHOLD = 0.8
 
 def get_my_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -106,7 +108,19 @@ class Node:
             self.remove_neighbor(s)
 
     def has_file(self, file_name):
-        return os.path.exists(file_name)
+        if os.path.exists(file_name):
+            return True
+        for file in os.listdir('.'):
+            if SequenceMatcher(None, file, file_name).ratio() >= SIMILARITY_MIN_THRESHOLD:
+                return True
+        return False
+    
+    def get_similar_file(self, file_name):
+        if os.path.exists(file_name):
+            return file_name
+        for file in os.listdir('.'):
+            if SequenceMatcher(None, file, file_name).ratio() >= SIMILARITY_MIN_THRESHOLD:
+                return file
     
     def request_file(self, file_name):
         packet = Data(MessageType.FILE_SEARCH, self.ip, 'ALL')
@@ -144,7 +158,7 @@ class Node:
         if packet.type == MessageType.FILE_SEARCH:
             if self.has_file(packet.file_name):
                 to_send_packet = Data(MessageType.HAS_FILE, self.ip, packet.sender)
-                to_send_packet.file_name = packet.file_name
+                to_send_packet.file_name = self.get_similar_file(packet.file_name)
                 self.send_packet(packet.sender, to_send_packet)
             else: # pass on the message
                 for neighbor in self.neighbors_ip.keys():
