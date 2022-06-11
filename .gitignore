@@ -1,1 +1,2 @@
 write_ahead_log.json
+*.pyc
