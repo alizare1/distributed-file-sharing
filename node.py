@@ -5,11 +5,11 @@ import select
 import os.path
 from packet import *
 from file import File
+from write_ahead import WriteAheadLog
+from datetime import datetime
 
 HOST = "0.0.0.0"
 PORT = 8081
-
-WRITE_AHEAD_LOG_FILE_NAME = "write_ahead.log"
 
 def get_my_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -25,8 +25,9 @@ def get_my_ip():
 
 
 class Node:
-    def __init__(self, ip):
+    def __init__(self, ip, write_ahead_log):
         self.ip = ip
+        self.write_ahead_log = write_ahead_log
         self.files_buffer = {}
         self.sock = None
         self.neighbors_sock = {} # maps IP to sock
@@ -59,23 +60,19 @@ class Node:
         self.neighbors_sock[ip] = s
         self.routes[ip] = ip
 
-    def store_filename_in_write_ahead_log(self, file_name):
-        f = open(WRITE_AHEAD_LOG_FILE_NAME, 'a')
-        f.write(file_name + '\n')
-        f.close()
+    def add_in_write_ahead_log(self, ip, send_time, file_name, last_part):
+        self.write_ahead_log.add_entry(ip, send_time, file_name, last_part)
 
 
     def send_file(self, ip, file_name):
         if ip not in self.routes or self.routes[ip] not in self.neighbors_sock:
             raise Exception('Given IP is unknown')
-        
-        self.store_filename_in_write_ahead_log(file_name)
-
         f = open(file_name, 'rb')
         data = f.read()
         f.close()
         packets = create_data_packets(MessageType.FILE_TRANFER, self.ip, ip, data, file_name)
         s = self.neighbors_sock[self.routes[ip]]
+        self.add_in_write_ahead_log(ip, str(datetime.utcnow()), file_name, len(packets)-1)
         for p in packets:
             s.sendall(p)
 
@@ -89,9 +86,10 @@ class Node:
             _, pickled_packet = create_pickled_packet(packet, None)
             neighbor.sendall(pickled_packet)
 
-    def send_ack(self, ip, part_number):
+    def send_ack(self, ip, part_number, file_name):
         packet = Data(MessageType.ACK, self.ip, ip)
         packet.part_num = part_number
+        packet.file_name = file_name
         self.send_packet(ip, packet)
 
     def handle_packet(self, packet):
@@ -100,12 +98,12 @@ class Node:
                 self.files_buffer[packet.file_name] = File()
             f = self.files_buffer[packet.file_name]
             f.add_part(packet)
-            self.send_ack(packet.sender, packet.part_num)
+            self.send_ack(packet.sender, packet.part_num, packet.file_name)
             if (f.is_complete()):
                 f.write_file()
                 self.files_buffer.pop(packet.file_name)
         elif packet.type == MessageType.ACK:
-            print(f'ACK received for part {packet.part_num}')
+            self.write_ahead_log.ack_part(packet.sender, packet.file_name, packet.part_num)
         elif packet.type == MessageType.HAS_FILE:
             p = Data(MessageType.TRANSFER_REQUEST, self.ip, packet.sender)
             p.file_name = packet.file_name
@@ -179,7 +177,7 @@ class Node:
 class CommandHandler:
     def __init__(self):
         self.ip = get_my_ip()
-        self.node = Node(self.ip)
+        self.node = Node(self.ip, WriteAheadLog())
         print(f'IP: {self.ip}')
         t = threading.Thread(target=self.node.run_socket, args=(self.ip,), daemon=True)
         t.start()

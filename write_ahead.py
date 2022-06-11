@@ -6,12 +6,11 @@ WRITE_AHEAD_LOG_FILE_NAME = "write_ahead_log.json"
 class WriteAheadLog:
     def __init__(self):
         if exists(WRITE_AHEAD_LOG_FILE_NAME):
-            self.file = open(WRITE_AHEAD_LOG_FILE_NAME, 'r')
-            self.__read_from_json()
-            self.file.close()
+            file = open(WRITE_AHEAD_LOG_FILE_NAME, 'r')
+            self.__read_from_json(file)
+            file.close()
         else:
             self.log = dict()
-        self.file = open(WRITE_AHEAD_LOG_FILE_NAME, 'w')
     
     def print_log(self):
         for ip in self.log:
@@ -20,11 +19,13 @@ class WriteAheadLog:
                 print(f'\t{entry["send_time"]} {entry["file_name"]} {entry["receiver_unacked_parts"]}')
 
     def __write_to_file(self):
-        json.dump(self.log, self.file)
+        file = open(WRITE_AHEAD_LOG_FILE_NAME, 'w')
+        json.dump(self.log, file)
+        file.close()
     
-    def __read_from_json(self):
+    def __read_from_json(self, file):
         try:
-            self.log = json.load(self.file)
+            self.log = json.load(file)
         except json.decoder.JSONDecodeError:
             self.log = dict()
 
