@@ -27,12 +27,21 @@ def get_my_ip():
 class Node:
     def __init__(self, ip, write_ahead_log):
         self.ip = ip
+        print(f'IP: {self.ip}')
         self.write_ahead_log = write_ahead_log
         self.files_buffer = {}
         self.sock = None
         self.neighbors_sock = {} # maps IP to sock
         self.neighbors_ip = {} # maps sock to IP
         self.routes = {} # maps ip to neighbors' ip, TODO: maybe make it list
+
+    def retransmit_packets_after_failure(self):
+        log = self.write_ahead_log.log
+        for ip in log:
+            for entry in log[ip]:
+                print(f'Retransmitting {entry["file_name"]} to {ip}')
+                self.join(ip, PORT)
+                self.send_file(ip, entry["file_name"])
 
     def send_packet(self, ip, packet):
         if ip not in self.routes or self.routes[ip] not in self.neighbors_sock:
@@ -178,9 +187,10 @@ class CommandHandler:
     def __init__(self):
         self.ip = get_my_ip()
         self.node = Node(self.ip, WriteAheadLog())
-        print(f'IP: {self.ip}')
         t = threading.Thread(target=self.node.run_socket, args=(self.ip,), daemon=True)
         t.start()
+        t2 = threading.Thread(target=self.node.retransmit_packets_after_failure, daemon=True)
+        t2.start()
 
     def run(self):
         while 1:
