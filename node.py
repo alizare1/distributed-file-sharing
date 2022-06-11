@@ -9,6 +9,7 @@ from file import File
 HOST = "0.0.0.0"
 PORT = 8081
 
+WRITE_AHEAD_LOG_FILE_NAME = "write_ahead.log"
 
 def get_my_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -58,9 +59,18 @@ class Node:
         self.neighbors_sock[ip] = s
         self.routes[ip] = ip
 
+    def store_filename_in_write_ahead_log(self, file_name):
+        f = open(WRITE_AHEAD_LOG_FILE_NAME, 'a')
+        f.write(file_name + '\n')
+        f.close()
+
+
     def send_file(self, ip, file_name):
         if ip not in self.routes or self.routes[ip] not in self.neighbors_sock:
             raise Exception('Given IP is unknown')
+        
+        self.store_filename_in_write_ahead_log(file_name)
+
         f = open(file_name, 'rb')
         data = f.read()
         f.close()
@@ -78,16 +88,24 @@ class Node:
         for neighbor in self.neighbors_ip.keys():
             _, pickled_packet = create_pickled_packet(packet, None)
             neighbor.sendall(pickled_packet)
-        
+
+    def send_ack(self, ip, part_number):
+        packet = Data(MessageType.ACK, self.ip, ip)
+        packet.part_num = part_number
+        self.send_packet(ip, packet)
+
     def handle_packet(self, packet):
         if packet.type == MessageType.FILE_TRANFER:
             if packet.file_name not in self.files_buffer:
                 self.files_buffer[packet.file_name] = File()
             f = self.files_buffer[packet.file_name]
             f.add_part(packet)
+            self.send_ack(packet.sender, packet.part_num)
             if (f.is_complete()):
                 f.write_file()
                 self.files_buffer.pop(packet.file_name)
+        elif packet.type == MessageType.ACK:
+            print(f'ACK received for part {packet.part_num}')
         elif packet.type == MessageType.HAS_FILE:
             p = Data(MessageType.TRANSFER_REQUEST, self.ip, packet.sender)
             p.file_name = packet.file_name
@@ -148,7 +166,7 @@ class Node:
                         continue
                     
                     p = pickle.loads(data)
-                    print(f'Received {MessageType.to_str(p.type)} from {p.sender}')
+                    print(f'Received {MessageType.to_str(p.type)} from {p.sender} for part {p.part_num}')
                     self.update_routes(p, sock)
                     if p.receiver == host_ip:
                         self.handle_packet(p)

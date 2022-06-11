@@ -8,13 +8,15 @@ class MessageType:
     FILE_SEARCH = 2
     HAS_FILE = 3
     TRANSFER_REQUEST = 4
+    ACK = 5
 
     _msg_str = {
         FILE_TRANFER: 'File Transfer',
         JOIN: 'Join',
         FILE_SEARCH: 'File Search',
         HAS_FILE: 'Has File',
-        TRANSFER_REQUEST: 'Transfer Request'
+        TRANSFER_REQUEST: 'Transfer Request',
+        ACK: 'ACK'
     }
 
     @staticmethod
