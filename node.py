@@ -1,8 +1,10 @@
 import socket
+from socket import error as SocketError
 import pickle
 import threading
 import select
 import os.path
+from time import sleep
 from packet import *
 from file import File
 from write_ahead import WriteAheadLog
@@ -10,6 +12,8 @@ from datetime import datetime
 
 HOST = "0.0.0.0"
 PORT = 8081
+
+ACK_LIMIT = 20 #seconds
 
 def get_my_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -62,6 +66,17 @@ class Node:
         self.neighbors_ip.pop(conn)
         # TODO: alert others, update routes
 
+    def check_for_time_out_acks(self):
+        while True:
+            for ip in self.write_ahead_log.log:
+                for entry in self.write_ahead_log.log[ip]:
+                    if (datetime.utcnow() - datetime.strptime(entry["send_time"], '%Y-%m-%d %H:%M:%S.%f')).seconds > ACK_LIMIT:
+                        print(f'ACK timed out for {entry["file_name"]} to {ip}')
+                        print(f'Retransmitting {entry["file_name"]} to {ip}')
+                        self.write_ahead_log.remove_entry(ip, entry["file_name"])
+                        self.send_file(ip, entry["file_name"], False)
+            sleep(1)
+
     def join(self, ip, port): # TODO
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((ip, port))
@@ -73,7 +88,7 @@ class Node:
         self.write_ahead_log.add_entry(ip, send_time, file_name, last_part)
 
 
-    def send_file(self, ip, file_name):
+    def send_file(self, ip, file_name, update_log=True):
         if ip not in self.routes or self.routes[ip] not in self.neighbors_sock:
             raise Exception('Given IP is unknown')
         f = open(file_name, 'rb')
@@ -81,9 +96,14 @@ class Node:
         f.close()
         packets = create_data_packets(MessageType.FILE_TRANFER, self.ip, ip, data, file_name)
         s = self.neighbors_sock[self.routes[ip]]
-        self.add_in_write_ahead_log(ip, str(datetime.utcnow()), file_name, len(packets)-1)
-        for p in packets:
-            s.sendall(p)
+        if update_log:
+            self.add_in_write_ahead_log(ip, str(datetime.utcnow()), file_name, len(packets)-1)
+        try:
+            for p in packets:
+                s.sendall(p)
+        except SocketError as e:
+            print(f'Error sending file {file_name} to {ip}')
+            self.remove_neighbor(s)
 
     def has_file(self, file_name):
         return os.path.exists(file_name)
@@ -191,6 +211,8 @@ class CommandHandler:
         t.start()
         t2 = threading.Thread(target=self.node.retransmit_packets_after_failure, daemon=True)
         t2.start()
+        t3 = threading.Thread(target=self.node.check_for_time_out_acks, daemon=True)
+        t3.start()
 
     def run(self):
         while 1:

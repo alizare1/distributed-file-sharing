@@ -47,3 +47,13 @@ class WriteAheadLog:
                     self.__write_to_file()
                     return
         self.__write_to_file()
+    
+    def remove_entry(self, ip, file_name):
+        if ip not in self.log:
+            return
+        for entry in self.log[ip]:
+            if entry['file_name'] == file_name:
+                self.log[ip].remove(entry)
+                self.__write_to_file()
+                return
+        self.__write_to_file()
