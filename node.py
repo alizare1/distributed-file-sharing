@@ -51,7 +51,8 @@ class Node:
 
     def send_packet(self, ip, packet):
         if ip not in self.routes or self.routes[ip] not in self.neighbors_sock:
-            raise Exception(f'Given IP is unknown ({ip})')
+            print(f'Given IP is unknown ({ip})')
+            return
         
         s = self.neighbors_sock[self.routes[ip]]
         print(f'sending to {ip} (using {self.routes[ip]})')
@@ -92,7 +93,8 @@ class Node:
 
     def send_file(self, ip, file_name, update_log=True):
         if ip not in self.routes or self.routes[ip] not in self.neighbors_sock:
-            raise Exception('Given IP is unknown')
+            print(f'Given IP is unknown ({ip})')
+            return
         f = open(file_name, 'rb')
         data = f.read()
         f.close()
