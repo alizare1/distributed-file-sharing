@@ -20,8 +20,14 @@ class WriteAheadLog:
 
     def __write_to_file(self):
         file = open(WRITE_AHEAD_LOG_FILE_NAME, 'w')
-        json.dump(self.log, file)
-        file.close()
+        try:
+            json.dump(self.log, file)
+            file.close()
+        except KeyboardInterrupt:
+            file.close()
+            print("Quitting after write is finished!")
+            self.__write_to_file()
+            exit(0)
     
     def __read_from_json(self, file):
         try:

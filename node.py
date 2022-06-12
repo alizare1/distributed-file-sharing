@@ -90,8 +90,7 @@ class Node:
     def add_in_write_ahead_log(self, ip, send_time, file_name, last_part):
         self.write_ahead_log.add_entry(ip, send_time, file_name, last_part)
 
-
-    def send_file(self, ip, file_name, update_log=True):
+    def threaded_send_file(self, ip, file_name, update_log=True):
         if ip not in self.routes or self.routes[ip] not in self.neighbors_sock:
             print(f'Given IP is unknown ({ip})')
             return
@@ -108,6 +107,10 @@ class Node:
         except SocketError as e:
             print(f'Error sending file {file_name} to {ip}')
             self.remove_neighbor(s)
+
+    def send_file(self, ip, file_name, update_log=True):
+        t = threading.Thread(target=self.threaded_send_file, args=(ip, file_name, update_log), daemon=True)
+        t.start()
 
     def has_file(self, file_name):
         if os.path.exists(file_name):
