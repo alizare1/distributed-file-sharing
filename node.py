@@ -175,6 +175,7 @@ class Node:
                 to_send_packet.file_name = self.get_similar_file(packet.file_name)
                 self.send_packet(packet.sender, to_send_packet)
             else: # pass on the message
+                to_send_packet.ttl -= 1
                 for neighbor in self.neighbors_ip.keys():
                     if neighbor == conn: # don't send message to where it came from
                         continue
@@ -204,13 +205,16 @@ class Node:
             return CLOSED_SOCKET
         
         p = pickle.loads(data)
-        print(f'Received {MessageType.to_str(p.type)} from {p.sender} for part {p.part_num}')
+        print(f'Received {MessageType.to_str(p.type)} from {p.sender} for part {p.part_num} with ttl {p.ttl}')
         self.update_routes(p, sock)
+        if p.ttl <= 0:
+            return
         if p.receiver == self.ip:
             self.handle_packet(p)
         elif p.receiver == 'ALL':
             self.handle_broadcast_packet(p, sock)
         else:
+            p.ttl -= 1
             self.send_packet(p.receiver, p)
     
     def run_socket(self, bt_name=None):

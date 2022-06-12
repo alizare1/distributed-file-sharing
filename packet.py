@@ -1,6 +1,7 @@
 import pickle
 
 BLOCK_SIZE = 300
+DEFAULT_TTL = 10
 
 class MessageType:
     FILE_TRANFER = 0
@@ -35,6 +36,7 @@ class Data:
         self.file_name = ''
         self.is_last = False
         self.part_num = 0
+        self.ttl = DEFAULT_TTL
 
 
 def get_pickled_size(obj):
