@@ -159,6 +159,7 @@ class Node:
                 self.files_buffer.pop(packet.file_name)
         elif packet.type == MessageType.ACK:
             self.write_ahead_log.ack_part(packet.sender, packet.file_name, packet.part_num)
+            self.write_ahead_log.update_send_time(str(datetime.utcnow()), packet.sender, packet.file_name)
         elif packet.type == MessageType.HAS_FILE:
             if packet.file_name in self.files_buffer:
                 return

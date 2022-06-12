@@ -63,3 +63,14 @@ class WriteAheadLog:
                 self.__write_to_file()
                 return
         self.__write_to_file()
+    
+    def update_send_time(self, time, ip, file_name):
+        if ip not in self.log:
+            return
+        for entry in self.log[ip]:
+            if entry['file_name'] == file_name:
+                entry['send_time'] = time
+                self.__write_to_file()
+                return
+        self.__write_to_file()
+
