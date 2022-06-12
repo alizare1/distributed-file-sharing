@@ -108,12 +108,8 @@ class Node:
         s = self.neighbors_sock[self.routes[ip]]
         if update_log:
             self.add_in_write_ahead_log(ip, str(datetime.utcnow()), file_name, len(packets)-1)
-        try:
-            for p in packets:
-                s.sendall(p)
-        except SocketError as e:
-            print(f'Error sending file {file_name} to {ip}')
-            self.remove_neighbor(s)
+        for p in packets:
+            s.sendall(p)
 
     def send_file(self, ip, file_name, update_log=True):
         t = threading.Thread(target=self.threaded_send_file, args=(ip, file_name, update_log), daemon=True)
@@ -244,9 +240,16 @@ class Node:
                     print(f"Connected by {addr}")
 
                 else:
-                    ret = self.handle_incomming_data(sock)
-                    if ret == CLOSED_SOCKET:
+                    try:
+                        ret = self.handle_incomming_data(sock)
+                        if ret == CLOSED_SOCKET:
+                            listening_socks.remove(sock)
+                    except SocketError as e:
+                        print(f'Socket error')
+                        self.remove_neighbor(sock)
                         listening_socks.remove(sock)
+                    except Exception as e:
+                        print(f'Exception: {e}')
 
                     
 
