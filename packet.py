@@ -63,15 +63,12 @@ def create_pickled_packet(packet, data) -> (int, bytes):
     return capacity, insert_padding(pickle.dumps(packet))
 
 def create_data_packets(msg_type, sender, receiver, data, file_name=''):
-    # packets = []
     part_num = 0
     while len(data) > 0:
         packet = Data(msg_type, sender, receiver)
         packet.file_name = file_name
         packet.part_num = part_num
         serialized_size, pickled_packet = create_pickled_packet(packet, data)
-        # packets.append(pickled_packet)
-        yield pickled_packet
+        yield (pickled_packet, part_num)
         data = data[serialized_size:]
         part_num += 1
-    # return packets

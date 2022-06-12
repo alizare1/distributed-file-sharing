@@ -35,10 +35,10 @@ class WriteAheadLog:
         except json.decoder.JSONDecodeError:
             self.log = dict()
 
-    def add_entry(self, ip, send_time, file_name, last_part):
+    def add_entry(self, ip, send_time, file_name):
         if ip not in self.log:
             self.log[ip] = list()
-        self.log[ip].append(dict(send_time=send_time, file_name=file_name, receiver_unacked_parts=[i for i in range(last_part+1)]))
+        self.log[ip].append(dict(send_time=send_time, file_name=file_name, receiver_unacked_parts=[]))
         self.__write_to_file()
 
     def ack_part(self, ip, file_name, part_number):
@@ -70,6 +70,17 @@ class WriteAheadLog:
         for entry in self.log[ip]:
             if entry['file_name'] == file_name:
                 entry['send_time'] = time
+                self.__write_to_file()
+                return
+        self.__write_to_file()
+    
+    def update_receiver_unacked_parts(self, ip, file_name, part_number):
+        if ip not in self.log:
+            return
+        for entry in self.log[ip]:
+            if entry['file_name'] == file_name:
+                if part_number not in entry['receiver_unacked_parts']:
+                    entry['receiver_unacked_parts'].append(part_number)
                 self.__write_to_file()
                 return
         self.__write_to_file()

@@ -94,8 +94,8 @@ class Node:
         self.neighbors_sock[ip] = s
         self.routes[ip] = ip
 
-    def add_in_write_ahead_log(self, ip, send_time, file_name, last_part):
-        self.write_ahead_log.add_entry(ip, send_time, file_name, last_part)
+    def add_in_write_ahead_log(self, ip, send_time, file_name):
+        self.write_ahead_log.add_entry(ip, send_time, file_name)
 
     def threaded_send_file(self, ip, file_name, update_log=True):
         if ip not in self.routes or self.routes[ip] not in self.neighbors_sock:
@@ -107,8 +107,9 @@ class Node:
         packets = create_data_packets(MessageType.FILE_TRANFER, self.ip, ip, data, file_name)
         s = self.neighbors_sock[self.routes[ip]]
         if update_log:
-            self.add_in_write_ahead_log(ip, str(datetime.utcnow()), file_name, len(packets)-1)
-        for p in packets:
+            self.add_in_write_ahead_log(ip, str(datetime.utcnow()), file_name)
+        for p, n in packets:
+            self.write_ahead_log.update_receiver_unacked_parts(ip, file_name, n)
             s.sendall(p)
 
     def send_file(self, ip, file_name, update_log=True):
