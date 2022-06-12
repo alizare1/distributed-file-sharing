@@ -4,6 +4,7 @@ import pickle
 import threading
 import select
 import os.path
+import sys
 from time import sleep
 from packet import *
 from file import File
@@ -13,9 +14,12 @@ from difflib import SequenceMatcher
 
 HOST = "0.0.0.0"
 PORT = 8081
+BT_PORT = 4
 
 ACK_LIMIT = 20 #seconds
 SIMILARITY_MIN_THRESHOLD = 0.8
+
+CLOSED_SOCKET = 1
 
 def get_my_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -80,8 +84,11 @@ class Node:
                         self.send_file(ip, entry["file_name"], False)
             sleep(1)
 
-    def join(self, ip, port): # TODO
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def join(self, ip, port, is_bt=False): # TODO
+        if is_bt:
+            s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+        else:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((ip, port))
         self.neighbors_ip[s] = ip
         self.neighbors_sock[ip] = s
@@ -175,18 +182,56 @@ class Node:
     
     def update_routes(self, packet, conn):
         self.routes[packet.sender] = self.neighbors_ip[conn]
+
+    def handle_incomming_data(self, sock):
+        data = b''
+        try:
+            for _ in range(BLOCK_SIZE):
+                temp = sock.recv(1)
+                if not temp:
+                    data = b''
+                    break
+
+                data += temp
+
+        except ConnectionResetError: # Windows doesn't close socket (so no EOF) when program is closed
+            print('dumb windows')
+        if not data: # EOF
+            print(self.neighbors_ip[sock], 'disconnected!')
+            # listening_socks.remove(sock)
+            self.remove_neighbor(sock)
+            sock.close()
+            return CLOSED_SOCKET
+        
+        p = pickle.loads(data)
+        print(f'Received {MessageType.to_str(p.type)} from {p.sender} for part {p.part_num}')
+        self.update_routes(p, sock)
+        if p.receiver == self.ip:
+            self.handle_packet(p)
+        elif p.receiver == 'ALL':
+            self.handle_broadcast_packet(p, sock)
+        else:
+            self.send_packet(p.receiver, p)
     
-    def run_socket(self, host_ip):
+    def run_socket(self, bt_name=None):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((HOST, PORT))
         self.sock.listen()
+        bt_sock = None
+        if bt_name:
+            bt_sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+            bt_sock.bind((bt_name, BT_PORT))
+            bt_sock.listen()
+            print('Bluetooth socket is running')
         while 1:
             listening_socks = [self.sock]
+            if bt_name:
+                listening_socks.append(bt_sock)
             listening_socks.extend(self.neighbors_ip.keys())
             ready_socks, _, _ = select.select(listening_socks, [], [], 0.5)
             for sock in ready_socks:
-                if sock == self.sock: # new connection
-                    conn, addr = self.sock.accept()
+                if sock == self.sock or sock == bt_sock: # new connection
+                    conn, addr = sock.accept()
                     self.neighbors_sock[addr[0]] = conn
                     self.neighbors_ip[conn] = addr[0]
                     self.routes[addr[0]] = addr[0]
@@ -194,41 +239,18 @@ class Node:
                     print(f"Connected by {addr}")
 
                 else:
-                    data = b''
-                    try:
-                        for _ in range(BLOCK_SIZE):
-                            temp = sock.recv(1)
-                            if not temp:
-                                data = b''
-                                break
-
-                            data += temp
-
-                    except ConnectionResetError: # Windows doesn't close socket (so no EOF) when program is closed
-                        print('dumb windows')
-                    if not data: # EOF
-                        print(self.neighbors_ip[sock], 'disconnected!')
+                    ret = self.handle_incomming_data(sock)
+                    if ret == CLOSED_SOCKET:
                         listening_socks.remove(sock)
-                        self.remove_neighbor(sock)
-                        sock.close()
-                        continue
+
                     
-                    p = pickle.loads(data)
-                    print(f'Received {MessageType.to_str(p.type)} from {p.sender} for part {p.part_num}')
-                    self.update_routes(p, sock)
-                    if p.receiver == host_ip:
-                        self.handle_packet(p)
-                    elif p.receiver == 'ALL':
-                        self.handle_broadcast_packet(p, sock)
-                    else:
-                        self.send_packet(p.receiver, p)
 
 
 class CommandHandler:
-    def __init__(self):
+    def __init__(self, bt_addr=None):
         self.ip = get_my_ip()
         self.node = Node(self.ip, WriteAheadLog())
-        t = threading.Thread(target=self.node.run_socket, args=(self.ip,), daemon=True)
+        t = threading.Thread(target=self.node.run_socket, args=(bt_addr,), daemon=True)
         t.start()
         t2 = threading.Thread(target=self.node.retransmit_packets_after_failure, daemon=True)
         t2.start()
@@ -243,7 +265,10 @@ class CommandHandler:
             elif cmd[0] == 'send':
                 self.node.send_file(cmd[1], cmd[2])
             elif cmd[0] == 'join':
-                self.node.join(cmd[1], PORT)
+                if len(cmd) > 2:
+                    self.node.join(cmd[1], BT_PORT, True)
+                else:
+                    self.node.join(cmd[1], PORT)
             elif cmd[0] == 'request':
                 self.node.request_file(cmd[1])
             elif cmd[0] == 'list':
@@ -256,5 +281,9 @@ class CommandHandler:
                 print('Invalid command! use "help"')
 
 if __name__ == '__main__':
-    c = CommandHandler()
+    bt_addr = None
+    if len(sys.argv) > 1:
+        bt_addr = sys.argv[1]
+
+    c = CommandHandler(bt_addr)
     c.run()
