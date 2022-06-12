@@ -110,7 +110,11 @@ class Node:
             self.add_in_write_ahead_log(ip, str(datetime.utcnow()), file_name)
         for p, n in packets:
             self.write_ahead_log.update_receiver_unacked_parts(ip, file_name, n)
-            s.sendall(p)
+            try:
+                s.sendall(p)
+            except OSError:
+                print('Other node probably got disconnected')
+                return
 
     def send_file(self, ip, file_name, update_log=True):
         t = threading.Thread(target=self.threaded_send_file, args=(ip, file_name, update_log), daemon=True)
