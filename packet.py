@@ -46,16 +46,18 @@ def get_pickled_size(obj):
 def insert_padding(pickled_data):
     initial_size = len(pickled_data)
     if initial_size > BLOCK_SIZE:
+        print(initial_size)
         raise Exception('insert_padding: Packet is larger than BLOCK_SIZE')
     
     return pickled_data + b'0' * (BLOCK_SIZE - initial_size)
 
 def create_pickled_packet(packet, data) -> (int, bytes):
     initial_size = get_pickled_size(packet)
-    if initial_size >= BLOCK_SIZE - (BLOCK_SIZE // 10):
+    if data and initial_size >= BLOCK_SIZE - 5:
+        print(initial_size)
         raise Exception('get_pickled_packet: Packet has no space for data')
     
-    capacity = BLOCK_SIZE - initial_size - (BLOCK_SIZE // 10)
+    capacity = BLOCK_SIZE - initial_size - 5
     if data:
         packet.data = data[:capacity]
         if (len(data) <= capacity):
