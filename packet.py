@@ -1,6 +1,6 @@
 import pickle
 
-BLOCK_SIZE = 300
+BLOCK_SIZE = 2048
 DEFAULT_TTL = 10
 
 class MessageType:

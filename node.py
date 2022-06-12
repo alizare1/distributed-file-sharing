@@ -59,7 +59,7 @@ class Node:
             return
         
         s = self.neighbors_sock[self.routes[ip]]
-        print(f'sending to {ip} (using {self.routes[ip]})')
+        print(f'sending {MessageType.to_str(packet.type)} to {ip} (using {self.routes[ip]})')
         _, pickled_packet = create_pickled_packet(packet, None)
         s.sendall(pickled_packet)
 
