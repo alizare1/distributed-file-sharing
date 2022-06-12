@@ -150,6 +150,8 @@ class Node:
         elif packet.type == MessageType.ACK:
             self.write_ahead_log.ack_part(packet.sender, packet.file_name, packet.part_num)
         elif packet.type == MessageType.HAS_FILE:
+            if packet.file_name in self.files_buffer:
+                return
             p = Data(MessageType.TRANSFER_REQUEST, self.ip, packet.sender)
             p.file_name = packet.file_name
             self.send_packet(packet.sender, p)
