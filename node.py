@@ -175,7 +175,7 @@ class Node:
                 to_send_packet.file_name = self.get_similar_file(packet.file_name)
                 self.send_packet(packet.sender, to_send_packet)
             else: # pass on the message
-                to_send_packet.ttl -= 1
+                packet.ttl -= 1
                 for neighbor in self.neighbors_ip.keys():
                     if neighbor == conn: # don't send message to where it came from
                         continue
