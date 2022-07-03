@@ -43,7 +43,7 @@ class Node:
         self.sock = None
         self.neighbors_sock = {} # maps IP to sock
         self.neighbors_ip = {} # maps sock to IP
-        self.routes = {} # maps ip to neighbors' ip, TODO: maybe make it list
+        self.routes = {} # maps ip to neighbors' ip
 
     def retransmit_packets_after_failure(self):
         log = self.write_ahead_log.log
@@ -71,7 +71,6 @@ class Node:
         self.neighbors_sock.pop(self.neighbors_ip[conn])
         self.routes.pop(self.neighbors_ip[conn])
         self.neighbors_ip.pop(conn)
-        # TODO: alert others, update routes
 
     def check_for_time_out_acks(self):
         while True:
@@ -84,7 +83,7 @@ class Node:
                         self.send_file(ip, entry["file_name"], False)
             sleep(1)
 
-    def join(self, ip, port, is_bt=False): # TODO
+    def join(self, ip, port, is_bt=False):
         if is_bt:
             s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
         else:
@@ -170,7 +169,7 @@ class Node:
         elif packet.type == MessageType.TRANSFER_REQUEST:
             self.send_file(packet.sender, packet.file_name)
     
-    def handle_broadcast_packet(self, packet, conn): # TODO: handle circular routes, keep history of hops in packet?
+    def handle_broadcast_packet(self, packet, conn):
         if packet.type == MessageType.FILE_SEARCH:
             if self.has_file(packet.file_name):
                 to_send_packet = Data(MessageType.HAS_FILE, self.ip, packet.sender)
@@ -287,7 +286,7 @@ class CommandHandler:
             elif cmd[0] == 'list':
                 self.node.list_neighbors()
             elif cmd[0] == 'leave':
-                pass # TODO
+                pass
             elif cmd[0] == 'help':
                 print('''join <ip>\nsend <ip>\nlist - lists neighbors\nhelp - shows this message\nrequest <file>''')
             else:
