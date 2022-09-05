@@ -1,6 +1,10 @@
 # Distributed P2P File Sharing System
 We implemented this project as a course project for the distributed systems class at the University of Tehran.  
-The project aims to send files with any extension on a network of devices connected using __Wi-Fi__ and __Bluetooth__. Moreover, the project can distribute the files using __chunked__ data structures in a __fault-tolerant__ manner using write-ahead logging (WAL).
+The project aims to send files with any extension on a network of devices connected using __Wi-Fi__ and __Bluetooth__. Moreover, the project can distribute the files using __chunked__ data structures in a __fault-tolerant__ manner using write-ahead logging (WAL).  
+<p align="center">
+<img src="https://as1.ftcdn.net/v2/jpg/04/96/23/92/1000_F_496239291_p6vy0e59IMpUiOu36ZCySfg7DmbsYYcd.jpg" width="300">
+</p>
+
 # Architecture
 ## Network Messages
 Various network message types are defined to let us achieve different functionalities. The following list states the message types alongside their definitions:
